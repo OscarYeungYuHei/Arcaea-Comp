@@ -148,7 +148,7 @@ export default function BanPickPage() {
     return pageShell(
       <>
         <HeaderSection round={TOTAL_ROUNDS} totalRounds={TOTAL_ROUNDS} />
-        <p className="text-center text-[#a78bfa] text-lg font-semibold mb-8">
+        <p className="text-center text-[#a78bfa] text-2xl md:text-3xl font-semibold mb-8">
           All Rounds Complete!
         </p>
         <SummarySection

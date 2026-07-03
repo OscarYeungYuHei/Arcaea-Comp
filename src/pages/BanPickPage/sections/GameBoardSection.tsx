@@ -1,14 +1,9 @@
 import { useState, useCallback } from 'react';
 import type { ISong } from '@/data/songs';
-import { Image } from '@/components/ui/image';
-
-function getSongImageUrl(songName: string): string {
-  const fileName = `Jacket_${songName.replace(/ /g, '_')}.png`;
-  return `https://arcaea.fandom.com/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
-}
+import { encPath } from '@/data/songs';
 
 function isLongName(name: string): boolean {
-  return name.length > 18;
+  return name.length > 14;
 }
 
 function getDifficultyClass(difficulty: string): string {
@@ -51,7 +46,7 @@ function SongCard({ song, isBanned, isSelected, disabled, onClick }: SongCardPro
       <div
         onClick={handleClick}
         className={`
-          w-[100px] h-[140px] md:w-[160px] md:h-[220px]
+          w-[170px] h-[250px] md:w-[210px] md:h-[310px]
           relative cursor-pointer rounded-md border-8
           bg-[#1e1b4b] overflow-hidden flex flex-col
           transition-transform duration-200 ease-out
@@ -64,8 +59,8 @@ function SongCard({ song, isBanned, isSelected, disabled, onClick }: SongCardPro
         {/* Jacket image area */}
         <div className="w-full flex-1 min-h-0 overflow-hidden bg-[#1e1b4b] relative">
           {!imgError ? (
-            <Image
-              src={getSongImageUrl(song.name)}
+            <img
+              src={encPath(song.jacket)}
               alt={song.name}
               loading="lazy"
               className="w-full h-full object-cover block"
@@ -73,7 +68,7 @@ function SongCard({ song, isBanned, isSelected, disabled, onClick }: SongCardPro
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center p-2">
-              <span className="text-white text-xs md:text-sm font-semibold text-center leading-tight">
+              <span className="text-white text-sm md:text-base font-semibold text-center leading-tight">
                 {song.name}
               </span>
             </div>
@@ -84,9 +79,9 @@ function SongCard({ song, isBanned, isSelected, disabled, onClick }: SongCardPro
             <div
               className={`
                 absolute inset-x-0 top-1/2 -translate-y-1/2
-                py-2 md:py-3
+                py-3 md:py-4
                 flex items-center justify-center rounded-md
-                text-xs md:text-sm font-black tracking-widest uppercase text-white
+                text-base md:text-lg font-black tracking-widest uppercase text-white
                 z-10
                 ${isBanned ? 'bg-red-500/70' : 'bg-green-500/70'}
               `}
@@ -97,18 +92,18 @@ function SongCard({ song, isBanned, isSelected, disabled, onClick }: SongCardPro
         </div>
 
         {/* Song info */}
-        <div className={`px-1.5 py-1 md:px-2 md:py-1.5 ${infoBgClass} text-center shrink-0`}>
+        <div className={`px-2 py-1.5 md:px-3 md:py-2 ${infoBgClass} text-center shrink-0`}>
           <div
             className={`
               font-semibold text-white leading-tight mb-0.5
               flex items-center justify-center
-              ${isLongName(song.name) ? 'text-[0.54rem] md:text-[0.68rem]' : 'text-[0.62rem] md:text-[0.78rem]'}
+              ${isLongName(song.name) ? 'text-[0.7rem] md:text-[0.85rem]' : 'text-[0.8rem] md:text-[1rem]'}
             `}
             style={{ minHeight: '1.6em' }}
           >
             {song.name}
           </div>
-          <div className="text-[0.65rem] md:text-[0.85rem] font-bold uppercase tracking-wide text-white">
+          <div className="text-[0.8rem] md:text-[1rem] font-bold uppercase tracking-wide text-white">
             {song.difficulty}
           </div>
         </div>
@@ -156,7 +151,7 @@ export default function GameBoardSection({
   return (
     <div className="flex flex-col items-center">
       {/* Status bar */}
-      <div className="text-base text-[#94a3b8] mb-5 min-h-[1.5rem] text-center">
+      <div className="text-xl md:text-2xl text-[#94a3b8] mb-5 min-h-[2rem] text-center">
         {statusText}
       </div>
 
@@ -182,7 +177,7 @@ export default function GameBoardSection({
         {clickCount > 0 && (
           <button
             onClick={onUndo}
-            className="px-6 py-3 text-base font-semibold bg-[#a78bfa] text-white
+            className="px-8 py-4 text-lg md:text-xl font-semibold bg-[#a78bfa] text-white
                        border-none rounded-lg cursor-pointer
                        transition-colors duration-200
                        hover:bg-[#8b5cf6]"
@@ -195,7 +190,7 @@ export default function GameBoardSection({
         {isRoundComplete && (
           <button
             onClick={onNextRound}
-            className="px-8 py-3 text-base font-semibold bg-[#7c3aed] text-white
+            className="px-10 py-4 text-lg md:text-xl font-semibold bg-[#7c3aed] text-white
                        border-none rounded-lg cursor-pointer
                        transition-colors duration-200
                        hover:bg-[#6d28d9]"
