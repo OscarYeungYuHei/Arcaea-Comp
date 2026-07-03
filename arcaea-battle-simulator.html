@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1.0">
+<title>Arcaea对战选曲模拟器 — 直播版</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&family=Exo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   ARCAEA 对战选曲模拟器 — 直播大屏版 (1920×1080)
+   设计: Arcaea 官网美术风格 + 游戏内曲绘
+   ============================================================ */
+
+:root {
+  --bg: #14131c;
+  --panel: #1e1c2a;
+  --card-bg: #221f30;
+  --accent: #6c6dc2;
+  --accent-bright: #9496e0;
+  --accent-deep: #4a3f8a;
+  --text: #eceaf2;
+  --text-dim: #9995b0;
+  --banned: rgba(210, 30, 45, 0.88);
+  --selected: rgba(30, 180, 90, 0.85);
+  --diff-future: #b088d6;
+  --diff-beyond: #e04040;
+  --diff-eternal: #f0d060;
+  --angle: 22px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow-x: hidden; overflow-y: auto;
+  font-family: 'Exo 2', 'Titillium Web', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fullscreen background */
+.bg {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse at 25% 20%, rgba(108,109,194,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 65% 55%, rgba(176,136,214,0.05) 0%, transparent 45%),
+    radial-gradient(ellipse at 45% 80%, rgba(82,64,176,0.06) 0%, transparent 40%);
+}
+.bg .line {
+  position: absolute; height: 1px; width: 150%; left: -25%;
+  background: linear-gradient(90deg, transparent, rgba(108,109,194,0.08), transparent);
+}
+.bg .line:nth-child(1) { top: 14%; transform: rotate(-6deg); }
+.bg .line:nth-child(2) { top: 36%; transform: rotate(4deg); }
+.bg .line:nth-child(3) { top: 58%; transform: rotate(-3deg); }
+.bg .line:nth-child(4) { top: 78%; transform: rotate(7deg); }
+
+/* ===== Main Layout ===== */
+#app {
+  position: relative; z-index: 10;
+  width: 1920px; min-height: 1080px;
+  margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-start;
+  padding: 42px 80px 40px;
+}
+
+/* ===== Header ===== */
+.header { text-align: center; margin-bottom: 6px; }
+.header h1 {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 54px; font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+.header .subtitle {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 26px; font-weight: 600;
+  color: var(--accent-bright);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: -2px;
+}
+.header .round-info {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 34px; font-weight: 600;
+  color: var(--accent-bright);
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+/* Diamond divider */
+.divider {
+  display: flex; align-items: center; justify-content: center;
+  width: 500px; margin: 8px auto 0;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148,150,224,0.35), transparent);
+}
+.divider .diamond {
+  width: 10px; height: 10px; background: var(--accent-bright);
+  transform: rotate(45deg); margin: 0 14px; flex-shrink: 0;
+}
+
+/* ===== Status Bar ===== */
+.status-bar {
+  text-align: center; font-size: 32px; font-weight: 600;
+  color: var(--text-dim); letter-spacing: 0.04em;
+  margin: 16px 0 20px; min-height: 40px;
+  transition: all 0.3s;
+}
+.status-bar.complete { color: #5ce0a0; }
+.status-dot {
+  display: inline-block; width: 14px; height: 14px;
+  transform: rotate(45deg); margin-right: 10px; vertical-align: middle;
+}
+.status-dot.ban { background: var(--diff-beyond); }
+.status-dot.pick { background: #5ce0a0; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+.status-dot { animation: pulse 1.2s ease infinite; }
+
+/* ===== Song Grid — 3×2 ===== */
+.song-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 1560px;
+  margin-bottom: 22px;
+}
+
+/* ===== Song Card ===== */
+.song-card {
+  position: relative;
+  width: 100%; height: 340px;
+  background: var(--card-bg);
+  border: 2px solid rgba(255,255,255,0.06);
+  clip-path: polygon(
+    var(--angle) 0, calc(100% - var(--angle)) 0,
+    100% var(--angle), 100% calc(100% - var(--angle)),
+    calc(100% - var(--angle)) 100%, var(--angle) 100%,
+    0 calc(100% - var(--angle)), 0 var(--angle)
+  );
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.28s cubic-bezier(0.2,0.9,0.4,1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Jacket art background */
+.song-card .jacket {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+  opacity: 0.62;
+  transition: all 0.3s;
+}
+.song-card:hover:not(.disabled):not(.banned):not(.selected) .jacket {
+  opacity: 0.82; transform: scale(1.04);
+}
+
+/* Gradient overlay for text readability */
+.song-card .card-gradient {
+  position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(180deg,
+    rgba(20,18,28,0.35) 0%,
+    rgba(20,18,28,0.15) 40%,
+    rgba(20,18,28,0.7) 78%,
+    rgba(20,18,28,0.92) 100%
+  );
+}
+
+/* Difficulty color accent strip (left side) */
+.song-card::before {
+  content: ''; position: absolute;
+  left: 0; top: var(--angle); bottom: var(--angle);
+  width: 4px; z-index: 4;
+  transition: width 0.25s;
+}
+.song-card.diff-future::before  { background: var(--diff-future); }
+.song-card.diff-beyond::before  { background: var(--diff-beyond); }
+.song-card.diff-eternal::before { background: var(--diff-eternal); }
+
+/* Card text */
+.song-card .card-info {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  z-index: 2; padding: 0 20px 18px;
+  text-align: center;
+}
+.song-card .song-name {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 30px; font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+  overflow: hidden; text-overflow: ellipsis;
+  word-break: break-word;
+  max-width: 100%; max-height: 2.5em;
+  display: flex; align-items: center; justify-content: center;
+}
+.song-card .song-diff {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 25px; font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 6px;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.song-card.diff-future  .song-diff { color: var(--diff-future); }
+.song-card.diff-beyond  .song-diff { color: var(--diff-beyond); }
+.song-card.diff-eternal .song-diff { color: var(--diff-eternal); }
+
+/* Hover */
+.song-card:hover:not(.disabled):not(.banned):not(.selected) {
+  transform: translateY(-4px);
+  border-color: rgba(148,150,224,0.4);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 20px rgba(108,109,194,0.12);
+}
+.song-card:hover:not(.disabled):not(.banned):not(.selected)::before { width: 6px; }
+.song-card:active:not(.disabled):not(.banned):not(.selected) { transform: scale(0.97); }
+
+/* Banned / Selected — 半透明蒙版, 保留曲绘和曲名可见 */
+.song-card .overlay {
+  position: absolute; inset: 0; z-index: 5;
+  pointer-events: none;
+  transition: all 0.35s ease;
+}
+/* 颜色蒙版层 */
+.song-card .overlay::before {
+  content: ''; position: absolute; inset: 0;
+}
+.song-card.banned .overlay::before {
+  background: rgba(200, 25, 40, 0.55);
+}
+.song-card.selected .overlay::before {
+  background: rgba(25, 170, 80, 0.5);
+}
+/* 状态标签 */
+.song-card .overlay .status-label {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 34px; font-weight: 900;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  padding: 4px 20px;
+  border: 2px solid rgba(255,255,255,0.5);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.song-card.banned, .song-card.selected {
+  cursor: default; transform: none !important;
+}
+.song-card.banned  { border-color: rgba(220,50,50,0.5) !important; }
+.song-card.selected { border-color: rgba(40,200,100,0.5) !important; }
+.song-card.banned::before, .song-card.selected::before { opacity: 0.25; }
+.song-card.disabled { cursor: default; opacity: 0.42; }
+
+/* No-jacket placeholder */
+.song-card .jacket-placeholder {
+  position: absolute; inset: 0; z-index: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.5;
+}
+.song-card .jacket-placeholder .ph-diamond {
+  width: 60px; height: 60px;
+  border: 2px solid rgba(255,255,255,0.1);
+  transform: rotate(45deg);
+}
+
+/* ===== Controls ===== */
+.controls {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  justify-content: center; align-items: center;
+}
+
+.btn {
+  position: relative; padding: 18px 54px;
+  font-family: 'Titillium Web', 'Exo 2', sans-serif;
+  font-size: 26px; font-weight: 700;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text); cursor: pointer;
+  border: none; background: none;
+  transition: all 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  clip-path: polygon(
+    16px 0, calc(100% - 16px) 0,
+    100% 16px, 100% calc(100% - 16px),
+    calc(100% - 16px) 100%, 16px 100%,
+    0 calc(100% - 16px), 0 16px
+  );
+  transition: all 0.22s;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(0.95); }
+
+.btn-next::before {
+  background: linear-gradient(135deg, rgba(108,109,194,0.55), rgba(74,63,138,0.65));
+  border: 1px solid rgba(148,150,224,0.4);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+}
+.btn-next:hover::before {
+  background: linear-gradient(135deg, rgba(148,150,224,0.65), rgba(100,85,170,0.75));
+  box-shadow: 0 6px 28px rgba(74,63,138,0.35);
+}
+
+.btn-undo::before {
+  background: rgba(30,28,42,0.85);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.btn-undo:hover::before { background: rgba(45,42,62,0.9); border-color: rgba(255,255,255,0.2); }
+
+.btn-reset { font-size: 20px; padding: 14px 36px; color: var(--text-dim); }
+.btn-reset::before { background: transparent; border: 1px solid rgba(255,255,255,0.06); }
+.btn-reset:hover { color: var(--text); }
+.btn-reset:hover::before { border-color: rgba(255,255,255,0.18); }
+
+/* ===== Summary Page ===== */
+.summary-container {
+  width: 900px; margin: 12px auto 0;
+  max-height: 620px; overflow-y: auto;
+  padding-right: 8px;
+}
+/* summary scrollbar */
+.summary-container::-webkit-scrollbar { width: 5px; }
+.summary-container::-webkit-scrollbar-track { background: transparent; }
+.summary-container::-webkit-scrollbar-thumb { background: rgba(108,109,194,0.25); border-radius: 3px; }
+.summary-container h3 {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 34px; font-weight: 700;
+  color: var(--accent-bright);
+  letter-spacing: 0.06em; text-align: center;
+  margin-bottom: 20px;
+}
+.summary-round {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.05);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+  padding: 14px 20px; margin-bottom: 8px;
+}
+.summary-round h4 {
+  font-family: 'Titillium Web', sans-serif;
+  font-size: 24px; font-weight: 600;
+  color: var(--accent-bright);
+  letter-spacing: 0.06em; margin-bottom: 6px;
+}
+.summary-round p { font-size: 20px; line-height: 1.7; margin-bottom: 2px; color: var(--text-dim); }
+.summary-round strong { color: var(--text); font-weight: 600; }
+.song-tag {
+  display: inline-block; padding: 3px 14px;
+  font-size: 18px; font-weight: 600; margin: 2px 3px;
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+}
+.song-tag.banned-tag { background: rgba(210,40,45,0.22); color: #f09090; border: 1px solid rgba(210,40,45,0.25); }
+.song-tag.picked-tag { background: rgba(30,180,90,0.18); color: #80e8b0; border: 1px solid rgba(30,180,90,0.25); }
+
+.complete-text {
+  text-align: center; font-family: 'Titillium Web', sans-serif;
+  font-size: 32px; font-weight: 700;
+  color: var(--accent-bright); letter-spacing: 0.08em;
+  margin-bottom: 22px;
+}
+}
+
+/* ===== Animations ===== */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.song-card { animation: cardIn 0.4s ease backwards; }
+.song-card:nth-child(1) { animation-delay: 0.02s; }
+.song-card:nth-child(2) { animation-delay: 0.06s; }
+.song-card:nth-child(3) { animation-delay: 0.10s; }
+.song-card:nth-child(4) { animation-delay: 0.14s; }
+.song-card:nth-child(5) { animation-delay: 0.18s; }
+.song-card:nth-child(6) { animation-delay: 0.22s; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(108,109,194,0.2); }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="line"></div><div class="line"></div><div class="line"></div><div class="line"></div>
+</div>
+
+<div id="app"><!-- JS rendered --></div>
+
+<script>
+// ============================================================
+// SONG DATABASE — With jacket art URLs from Arcaea Wiki
+// ============================================================
+const SONGS = [
+  { id:1,  name:"PRAGMATISM -RESURRECTION-", diff:"Beyond 11.2",  jacket:"arcaea_illustrations/PRAGMATISM -RESURRECTION-.png" },
+  { id:2,  name:"Axium Crisis", diff:"Future 10.6",  jacket:"arcaea_illustrations/Axium Crisis.png" },
+  { id:3,  name:"Grievous Lady", diff:"Future 11.1",  jacket:"arcaea_illustrations/Grievous Lady.png" },
+  { id:4,  name:"Halcyon", diff:"Future 10.5",  jacket:"arcaea_illustrations/Halcyon.png" },
+  { id:5,  name:"Fracture Ray", diff:"Future 11.1",  jacket:"arcaea_illustrations/Fracture Ray.png" },
+  { id:6,  name:"Heavensdoor", diff:"Beyond 10.8",  jacket:"arcaea_illustrations/Heavensdoor.png" },
+  { id:7,  name:"Ringed Genesis", diff:"Future 10.8",  jacket:"arcaea_illustrations/Ringed Genesis.png" },
+  { id:8,  name:"Dantalion", diff:"Future 10.8",  jacket:"arcaea_illustrations/Dantalion.png" },
+  { id:9,  name:"Tempestissimo", diff:"Future 10.7",  jacket:"arcaea_illustrations/Tempestissimo.png" },
+  { id:10, name:"#1f1e33", diff:"Future 11.1",  jacket:"arcaea_illustrations/#1f1e33.png" },
+  { id:11, name:"Infinite Strife", diff:"Beyond 10.9",  jacket:"arcaea_illustrations/Infinite Strife.png" },
+  { id:12, name:"Arcana Eden", diff:"Future 10.5",  jacket:"arcaea_illustrations/Arcana Eden.png" },
+  { id:13, name:"World Ender", diff:"Beyond 11.1",  jacket:"arcaea_illustrations/World Ender.png" },
+  { id:14, name:"Testify", diff:"Future 10.9",  jacket:"arcaea_illustrations/Testify.png" },
+  { id:15, name:"Ego Eimi", diff:"Future 10.5",  jacket:"arcaea_illustrations/Ego Eimi.png" },
+  { id:16, name:"Abstruse Dilemma", diff:"Future 11.3",  jacket:"arcaea_illustrations/Abstruse Dilemma.png" },
+  { id:17, name:"Arghena", diff:"Future 11.3",  jacket:"arcaea_illustrations/Arghena.png" },
+  { id:18, name:"ALTER EGO", diff:"Eternal 11.3",  jacket:"arcaea_illustrations/ALTER EGO.png" },
+  { id:19, name:"Lament Rain", diff:"Future 10.6",  jacket:"arcaea_illustrations/Lament Rain.png" },
+  { id:20, name:"Designant.", diff:"Future 10.9",  jacket:"arcaea_illustrations/Designant_.png" },
+  { id:21, name:"ANDORXOR", diff:"Eternal 10.8",  jacket:"arcaea_illustrations/ANDORXOR.png" },
+  { id:22, name:"Undying Macula", diff:"Eternal 11.0",  jacket:"arcaea_illustrations/Undying Macula.png" },
+  { id:23, name:"Cyaegha", diff:"Future 10.7",  jacket:"arcaea_illustrations/Cyaegha.png" },
+  { id:24, name:"Seclusion", diff:"Future 10.6",  jacket:"arcaea_illustrations/Seclusion.png" },
+  { id:25, name:"Aegleseeker", diff:"Future 11.2",  jacket:"arcaea_illustrations/Aegleseeker.png" },
+  { id:26, name:"Extradimensional Cosmic Phenomenon", diff:"Eternal 11.3",  jacket:"arcaea_illustrations/Extradimensional Cosmic Phenomenon.png" },
+  { id:27, name:"Lilly", diff:"Eternal 10.8",  jacket:"arcaea_illustrations/Lilly.png" },
+  { id:28, name:"Welcome, Queen of Fiction.", diff:"Eternal 10.9",  jacket:"arcaea_illustrations/Welcome_ Queen of Fiction_.png" },
+  { id:29, name:"Stasis", diff:"Future 10.8",  jacket:"arcaea_illustrations/Stasis.png" },
+  { id:30, name:"Last Celebration", diff:"Future 10.4",  jacket:"arcaea_illustrations/Last Celebration.png" },
+  { id:31, name:"DA'AT -The First Seeker of Souls-", diff:"Future 10.9",  jacket:"arcaea_illustrations/DA_AT -The First Seeker of Souls-.png" },
+  { id:32, name:"Misdeed -la bonté de Dieu et l'origine du mal-", diff:"Future 10.9",  jacket:"arcaea_illustrations/Misdeed -la bonté de Dieu et l'origine du mal-.png" },
+  { id:33, name:"Spider's Thread", diff:"Future 10.8",  jacket:"arcaea_illustrations/Spider_s Thread.png" },
+  { id:34, name:"World Vanquisher", diff:"Future 10.7",  jacket:"arcaea_illustrations/World Vanquisher.png" },
+  { id:35, name:"Don't Fight The Music", diff:"Eternal 10.7",  jacket:"arcaea_illustrations/Don_t Fight The Music.png" },
+  { id:36, name:"And Revive The Melody", diff:"Future 10.9",  jacket:"arcaea_illustrations/And Revive The Melody.png" },
+  { id:37, name:"LAMIA", diff:"Future 11.0",  jacket:"arcaea_illustrations/LAMIA.png" },
+  { id:38, name:"ViRTUS", diff:"Eternal 10.9",  jacket:"arcaea_illustrations/ViRTUS.png" },
+  { id:39, name:"AMAZING MIGHTYYYY!!!!", diff:"Future 10.7",  jacket:"arcaea_illustrations/AMAZING MIGHTYYYY____.png" },
+  { id:40, name:"TEmPTaTiON", diff:"Future 10.9",  jacket:"arcaea_illustrations/TEmPTaTiON.png" },
+  { id:41, name:"Inverted World", diff:"Eternal 10.7",  jacket:"arcaea_illustrations/Inverted World.png" },
+  { id:42, name:"Vulcānus", diff:"Future 10.9",  jacket:"arcaea_illustrations/Vulcānus.png" },
+  { id:43, name:"Code: Obilivion", diff:"Eternal 10.9",  jacket:"arcaea_illustrations/Code_ Obilivion.png" },
+  { id:44, name:"MARENYX", diff:"Eternal 10.8",  jacket:"arcaea_illustrations/MARENYX.png" },
+  { id:45, name:"SAIKYO STRONGER", diff:"Future 11.0",  jacket:"arcaea_illustrations/SAIKYO STRONGER.png" },
+  { id:46, name:"Einherjar Joker", diff:"Beyond 10.9",  jacket:"arcaea_illustrations/Einherjar Joker.png" },
+  { id:47, name:"Heavenly caress", diff:"Beyond 10.9",  jacket:"arcaea_illustrations/Heavenly caress.png" },
+];
+
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TOTAL_ROUNDS = 14;
+const SONGS_PER_ROUND = 6;
+const BANS_PER_ROUND = 2;
+const PICKS_PER_ROUND = 2;
+const CLICKS_PER_ROUND = BANS_PER_ROUND + PICKS_PER_ROUND;
+
+// ============================================================
+// UTILS
+// ============================================================
+function shuffle(a){ const r=[...a]; for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]; } return r; }
+function diffClass(d){ const k=d.split(' ')[0].toLowerCase(); if(k==='beyond')return'diff-beyond'; if(k==='eternal')return'diff-eternal'; return'diff-future'; }
+function pickRoundSongs(all,used){
+  const s=shuffle(all); const fresh=s.filter(x=>!used.has(x.name)); const old=s.filter(x=>used.has(x.name));
+  let p=fresh.slice(0,SONGS_PER_ROUND);
+  if(p.length<SONGS_PER_ROUND) p=[...p,...old.slice(0,SONGS_PER_ROUND-p.length)];
+  return shuffle(p);
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const S={
+  round:1, clicks:0, songs:[], banned:[], selected:[], bannedHist:[], selectedHist:[],
+  used:new Set(), done:false, summary:false,
+};
+
+// ============================================================
+// LOGIC
+// ============================================================
+function newRound(){
+  if(S.round>TOTAL_ROUNDS){ S.done=true; R(); return; }
+  S.clicks=0; S.banned=[]; S.selected=[];
+  S.songs=pickRoundSongs(SONGS,S.used); S.songs.forEach(s=>S.used.add(s.name));
+  S.summary=false; R();
+}
+function clickSong(nm){
+  if(S.done||S.clicks>=CLICKS_PER_ROUND)return;
+  if(S.banned.includes(nm)||S.selected.includes(nm))return;
+  if(S.clicks<BANS_PER_ROUND){ S.banned.push(nm); S.clicks++; }
+  else if(S.clicks<CLICKS_PER_ROUND){ S.selected.push(nm); S.clicks++; }
+  if(S.clicks>=CLICKS_PER_ROUND){
+    S.bannedHist.push([...S.banned]); S.selectedHist.push([...S.selected]);
+    if(S.round>=TOTAL_ROUNDS) S.done=true;
+  }
+  R();
+}
+function undo(){
+  if(S.clicks<=0||S.done)return;
+  if(S.clicks>BANS_PER_ROUND) S.selected.pop(); else S.banned.pop();
+  S.clicks--; R();
+}
+function nextRound(){ if(!S.done&&S.clicks>=CLICKS_PER_ROUND){ S.round++; newRound(); } }
+function showSummary(){ S.summary=true; R(); }
+function back(){ S.summary=false; R(); }
+function reset(){
+  S.round=1; S.clicks=0; S.songs=[]; S.banned=[]; S.selected=[];
+  S.bannedHist=[]; S.selectedHist=[]; S.used=new Set();
+  S.done=false; S.summary=false; newRound();
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function escJs(s){ return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function encPath(p){ return p.split('/').map(s=>encodeURIComponent(s).replace(/'/g,'%27').replace(/#/g,'%23')).join('/'); }
+
+function statusText(){
+  if(S.clicks>=CLICKS_PER_ROUND) return'<span style="color:#5ce0a0;">◆ Round Complete</span>';
+  if(S.clicks<BANS_PER_ROUND) return`<span class="status-dot ban"></span>Click a song to <strong>BAN</strong> — <strong>${BANS_PER_ROUND-S.clicks}</strong> remaining`;
+  return`<span class="status-dot pick"></span>Click a song to <strong>SELECT</strong> — <strong>${CLICKS_PER_ROUND-S.clicks}</strong> remaining`;
+}
+
+function cardHTML(song){
+  const dc=diffClass(song.diff);
+  const banned=S.banned.includes(song.name), sel=S.selected.includes(song.name);
+  const done=S.clicks>=CLICKS_PER_ROUND;
+  let cls='', ov='';
+  if(banned){ cls=' banned'; ov='BANNED'; }
+  else if(sel){ cls=' selected'; ov='SELECTED'; }
+  if(done&&!banned&&!sel) cls+=' disabled';
+
+  const jacketHTML = song.jacket
+    ? `<div class="jacket" style="background-image:url(${encPath(song.jacket)})" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"></div>
+       <div class="jacket-placeholder" style="display:none"><div class="ph-diamond"></div></div>`
+    : `<div class="jacket-placeholder" style="display:flex"><div class="ph-diamond"></div></div>`;
+
+  return `<div class="song-card ${dc}${cls}" onclick="clickSong('${escJs(song.name)}')" role="button" tabindex="0">
+    ${jacketHTML}
+    <div class="card-gradient"></div>
+    <div class="card-info">
+      <div class="song-name">${esc(song.name)}</div>
+      <div class="song-diff">${esc(song.diff)}</div>
+    </div>
+    ${ov?`<div class="overlay"><span class="status-label">${ov}</span></div>`:''}
+  </div>`;
+}
+
+function gameHTML(){
+  const done=S.clicks>=CLICKS_PER_ROUND;
+  const last=S.round>=TOTAL_ROUNDS&&done;
+  return `<header class="header">
+    <h1>ACAHKU Arcaea Competition</h1>
+    <p class="subtitle">Double Elimination</p>
+    <div class="divider"><div class="diamond"></div></div>
+    <p class="round-info">Round ${S.round} / ${TOTAL_ROUNDS}</p>
+  </header>
+  <div class="status-bar${done?' complete':''}">${statusText()}</div>
+  <div class="song-grid">${S.songs.map(cardHTML).join('')}</div>
+  <div class="controls">
+    ${S.clicks>0&&!done?`<button class="btn btn-undo" onclick="undo()">↩ Undo</button>`:''}
+    ${done?`<button class="btn btn-next" onclick="${last?'showSummary()':'nextRound()'}">${last?'◆ Final Summary':'▸ Next Round'}</button>`:''}
+    <button class="btn btn-reset" onclick="reset()">↺ Reset</button>
+  </div>`;
+}
+
+function summaryHTML(){
+  let h=`<header class="header"><h1>ACAHKU Arcaea Competition</h1><p class="subtitle">Double Elimination</p></header>
+    <p class="complete-text">◆ All Rounds Complete ◆</p>
+    <div class="summary-container"><h3>Ban & Pick Summary</h3>`;
+  for(let i=0;i<S.bannedHist.length;i++){
+    const b=S.bannedHist[i]||[], s=S.selectedHist[i]||[];
+    h+=`<div class="summary-round"><h4>▸ Round ${i+1}</h4>
+      <p><strong>Banned</strong>&ensp;${b.length?b.map(x=>`<span class="song-tag banned-tag">${esc(x)}</span>`).join(' '):'—'}</p>
+      <p><strong>Selected</strong>&ensp;${s.length?s.map(x=>`<span class="song-tag picked-tag">${esc(x)}</span>`).join(' '):'—'}</p>
+    </div>`;
+  }
+  h+=`</div><div class="controls" style="margin-top:22px;">
+    <button class="btn btn-undo" onclick="back()">← Back</button>
+    <button class="btn btn-reset" onclick="reset()">↺ New Tournament</button>
+  </div>`;
+  return h;
+}
+
+function R(){ document.getElementById('app').innerHTML=S.summary?summaryHTML():gameHTML(); }
+
+// Keyboard
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==='Backspace'&&S.clicks>0&&!S.done&&!S.summary)undo();
+  if(e.key==='Enter'&&S.clicks>=CLICKS_PER_ROUND&&!S.done&&!S.summary)nextRound();
+  if(e.key==='Escape'&&S.summary)back();
+});
+
+// Init
+newRound();
+</script>
+</body>
+</html>
